@@ -191,14 +191,34 @@ public class CartUIShw1013 extends JFrame {
         }
 
         private void handleButtonAction() {
-            if (row < products.size()) {
+            JTable table = (JTable) SwingUtilities.getAncestorOfClass(JTable.class, button);
+
+            // 편집 중이면 강제로 종료
+            if (table != null && table.isEditing()) {
+                table.getCellEditor().stopCellEditing();
+            }
+
+            if (row >= 0 && row < products.size()) {
                 CartDTOShw1013 product = products.get(row);
 
                 if ("삭제".equals(actionType)) {
+                    // 데이터베이스에서 삭제
                     cartDAOShw1013.deleteCartItem(product.getCartId());
+
+                    // 데이터 리스트와 테이블 모델에서 삭제
                     products.remove(row);
                     model.removeRow(row);
-                    updateTotalPrice(model);
+
+                    // 삭제 후 총 금액 업데이트
+                    SwingUtilities.invokeLater(() -> {
+                        updateTotalPrice(model);
+
+                        // 테이블이 비어있지 않을 경우 포커스 재설정
+                        if (model.getRowCount() > 0) {
+                            int nextRow = Math.min(row, model.getRowCount() - 1);
+                            table.setRowSelectionInterval(nextRow, nextRow);
+                        }
+                    });
                 } else if ("수량 수정".equals(actionType)) {
                     String newQuantityStr = JOptionPane.showInputDialog("새로운 수량을 입력하세요:", product.getQuantity());
                     try {
@@ -207,7 +227,8 @@ public class CartUIShw1013 extends JFrame {
                             cartDAOShw1013.updateCartItem(product.getCartId(), newQuantity);
                             product.setQuantity(newQuantity);
                             model.setValueAt(newQuantity, row, 2);
-                            updateTotalPrice(model);
+
+                            SwingUtilities.invokeLater(() -> updateTotalPrice(model));
                         } else {
                             JOptionPane.showMessageDialog(null, "유효한 수량을 입력하세요.");
                         }
@@ -215,8 +236,13 @@ public class CartUIShw1013 extends JFrame {
                         JOptionPane.showMessageDialog(null, "숫자를 입력하세요.");
                     }
                 }
+            } else {
+                JOptionPane.showMessageDialog(null, "유효하지 않은 행입니다. 다시 시도하세요.");
             }
         }
+
+
+
 
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
